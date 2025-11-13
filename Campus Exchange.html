@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Exchange+</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        html {
+            /* Prevents scrollbar layout shift */
+            scrollbar-gutter: stable;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom animation for modals */
+        .modal-container {
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .modal-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-container:not(.hidden) .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+        .modal-container.hidden .modal-content {
+            transform: scale(0.95);
+            opacity: 0;
+        }
+        /* Custom scrollbar for the modal in dark mode */
+        .dark .details-scroll-area::-webkit-scrollbar-track {
+            background: #374151; /* gray-700 */
+        }
+        .dark .details-scroll-area::-webkit-scrollbar-thumb {
+            background: #6b7280; /* gray-500 */
+        }
+        .dark .details-scroll-area::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; /* gray-400 */
+        }
+        .details-scroll-area::-webkit-scrollbar {
+            width: 8px;
+        }
+        .details-scroll-area::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .details-scroll-area::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .details-scroll-area::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Toast Notification styles */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast.success {
+            background-color: #22c55e; /* green-500 */
+        }
+        .toast.error {
+            background-color: #ef4444; /* red-500 */
+        }
+        .toast.info {
+            background-color: #3b82f6; /* blue-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
+
+    <div id="app">
+        <!-- App content will be rendered here by JavaScript -->
+        <div class="h-screen flex items-center justify-center text-lg font-semibold text-gray-600 dark:text-gray-400">
+            Initializing Campus Exchange+...
+        </div>
+    </div>
+    <div id="toast-container"></div>
+
+    <script type="module">
+        // --- MOCK DATA (NO FIREBASE) ---
+        const defaultUser = {
+            uid: 'localUser123',
+            email: 'student@university.edu',
+            displayName: 'Rohan Sharma',
+            watchlist: ['3', '10'], // User is watching the jacket and the mini-fridge for rent
+        };
+
+        const defaultListings = [
+            {
+                id: '1',
+                title: 'Organic Chemistry Textbook',
+                description: 'Slightly used textbook for CHEM 201. No highlighting. Essential for passing the class!',
+                category: 'Books',
+                mode: 'Sell',
+                price: '1500',
+                isUrgent: true,
+                imageUrl: 'https://imgs.search.brave.com/VE192dmDs0iOocExLGlQSfiwovTTClsX5xDAlp503m8/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly90My5m/dGNkbi5uZXQvanBn/LzE0LzUyLzM1LzY0/LzM2MF9GXzE0NTIz/NTY0NTZfSEhKS2Jk/VG4wTmNSNjNWVTNW/anlHRjg4N2VqZGVG/OGkuanBn',
+                userId: 'user2',
+                userName: 'Priya Singh',
+                contactEmail: 'priya.s@university.edu',
+                contactPhone: '123-456-7890',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Library Front Desk',
+                createdAt: { seconds: new Date().getTime() / 1000 - 18000 },
+                expiryDate: { seconds: new Date('2025-10-20').getTime() / 1000 },
+            },
+            {
+                id: '2',
+                title: 'Dorm Mini Fridge',
+                description: 'Perfect for a dorm room. Keeps drinks and snacks cold. Small freezer compartment included.',
+                category: 'Electronics',
+                mode: 'Sell',
+                price: '4000',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/Fm6eufdu8kLWCT5v909B9tLSOg76OGDFLGuuT6kQnl4/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly90aHVt/YnMuZHJlYW1zdGlt/ZS5jb20vYi9ibGFj/ay13aGl0ZS1taW5p/LWZyaWRnZS1iYWNr/Z3JvdW5kLWNsb3Nl/LXVwLXBob3RvLTI5/NzI0MTE4My5qcGc',
+                userId: 'user3',
+                userName: 'Amit Kumar',
+                contactEmail: 'amit.k@university.edu',
+                contactPhone: '',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Block B, Room 201',
+                createdAt: { seconds: new Date().getTime() / 1000 - 86400 },
+                expiryDate: { seconds: new Date('2025-10-15').getTime() / 1000 },
+            },
+            {
+                id: '3',
+                title: 'Winter Jacket (Size M)',
+                description: 'Barely worn winter jacket. Very warm. I\'m leaving for a warmer city and won\'t need it.',
+                category: 'Clothes',
+                mode: 'Donate',
+                isUrgent: false,
+                imageUrl: 'https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcRjIDFCm0MdIq9pZV_jIkwZ61rjxf8xIYAlNpwPH1oyCSUJilSQjPv39Alf88dSIIbfzmBTDzW1V_tk5BtN3yxtXBqU-r2mVHozHAOT3djfaEjSmasUyvalwA',
+                userId: 'user4',
+                userName: 'Sunita Gupta',
+                contactEmail: 'sunita.g@university.edu',
+                contactPhone: '987-654-3210',
+                deliveryMode: 'Home Delivery',
+                pickupAddress: '',
+                createdAt: { seconds: new Date().getTime() / 1000 - 172800 },
+                expiryDate: { seconds: new Date('2025-11-01').getTime() / 1000 },
+            },
+            {
+                id: '4',
+                title: 'Study Desk Lamp',
+                description: 'Adjustable desk lamp with a bright LED bulb. Great for late-night study sessions. Lending it out for the semester.',
+                category: 'Furniture',
+                mode: 'Lend',
+                price: '100',
+                priceUnit: 'semester',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/8QRSmJRPL1NAzNQ2vh5WdsgLrnTECDDyzgiCv1TV6Uw/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/NDFvN1dxZEFLYkwu/anBn',
+                userId: 'user5',
+                userName: 'Vikram Rathod',
+                contactEmail: 'vikram.r@university.edu',
+                contactPhone: '',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Engineering Building Lobby',
+                createdAt: { seconds: new Date().getTime() / 1000 - 259200 },
+                expiryDate: { seconds: new Date('2025-09-30').getTime() / 1000 },
+            },
+            {
+                id: '5',
+                title: 'TI-84 Plus Calculator',
+                description: 'Needed for almost all math and engineering courses. Works perfectly, just needs new batteries soon.',
+                category: 'Electronics',
+                mode: 'Sell',
+                price: '3000',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/szx8QnY-2wwJSYdgCz6o2L5FZqgcadvofJG3_DETiAE/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFFOTdia2FPR0wu/anBn',
+                userId: 'user6',
+                userName: 'Anjali Sharma',
+                contactEmail: 'anjali.s@university.edu',
+                contactPhone: '555-555-5555',
+                deliveryMode: 'Home Delivery',
+                pickupAddress: '',
+                createdAt: { seconds: new Date().getTime() / 1000 - 604800 },
+                expiryDate: { seconds: new Date('2025-10-10').getTime() / 1000 },
+            },
+            {
+                id: '6',
+                title: 'Campus Bicycle',
+                description: 'A reliable cycle for getting around campus quickly. Good condition, recently serviced brakes. Selling as I got a bike.',
+                category: 'Vehicle',
+                mode: 'Sell',
+                price: '2500',
+                isUrgent: true,
+                imageUrl: 'https://imgs.search.brave.com/k3qEfL9vT44V42vf9i0dKYy1X2VwIKkrnkmosyMjYf8/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9ydWtt/aW5pbTIuZmxpeGNh/cnQuY29tL2ltYWdl/LzMwMC8zMDAveGlm/MHEvY3ljbGUvci9w/L3MvYnVrZS10aHJ1/c3QyNnQtYmljeWNs/ZS1mb3Ita2lkcy0y/NmluY2gtd2hlZWwt/MTctNS1zdGVlbC1m/cmFtZS1vcmlnaW5h/bC1pbWFnbmE2anZo/cmg0a2d5LmpwZWc_/cT05MA',
+                userId: 'localUser123',
+                userName: 'Rohan Sharma',
+                contactEmail: 'student@university.edu',
+                contactPhone: '111-222-3333',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Behind the main canteen',
+                createdAt: { seconds: new Date().getTime() / 1000 - 36000 },
+                expiryDate: { seconds: new Date('2025-09-25').getTime() / 1000 },
+            },
+            {
+                id: '7',
+                title: 'Portable Bluetooth Speaker',
+                description: 'Compact and loud speaker. Good battery life. Perfect for hostel parties or study sessions. Want to trade for a good pair of headphones.',
+                category: 'Electronics',
+                mode: 'Barter',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/ic-Jaam2lVLYi0nizRGGd8GSzJ2jyrpS7nPqYSGNGCA/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMudW5zcGxhc2gu/Y29tL3Bob3RvLTE2/NDA4MjY4MDgwNDYt/NmQ0ZDRmYWEzMGM4/P2ZtPWpwZyZxPTYw/Jnc9MzAwMCZpeGxp/Yj1yYi00LjEuMCZp/eGlkPU0zd3hNakEz/ZkRCOE1IeHpaV0Z5/WTJoOE1URjhmSE50/WVhKMEpUSXdjM0Js/WVd0bGNueGxibnd3/Zkh3d2ZIeDhNQT09',
+                userId: 'user9',
+                userName: 'Neha Patel',
+                contactEmail: 'neha.p@university.edu',
+                contactPhone: '321-654-9870',
+                deliveryMode: 'Home Delivery',
+                pickupAddress: '',
+                createdAt: { seconds: new Date().getTime() / 1000 - 90000 },
+                expiryDate: { seconds: new Date('2025-10-05').getTime() / 1000 },
+            },
+             {
+                id: '8',
+                title: 'Leather Backpack',
+                description: 'Stylish and durable leather backpack. Many compartments for laptop and books. Selling it because I prefer a messenger bag.',
+                category: 'Clothes',
+                mode: 'Sell',
+                price: '1200',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/2tfvh8yzqxHJ-ZANDsseKVLhGAvUJN-NY6XlW7nhd24/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pLmV0/c3lzdGF0aWMuY29t/LzU3ODkyMjkxL3Iv/aWwvZDE1Nzc2LzY4/OTEzMjg3MTYvaWxf/MzAweDMwMC42ODkx/MzI4NzE2XzM1bGsu/anBn',
+                userId: 'localUser123',
+                userName: 'Rohan Sharma',
+                contactEmail: 'student@university.edu',
+                contactPhone: '111-222-3333',
+                deliveryMode: 'Home Delivery',
+                pickupAddress: '',
+                createdAt: { seconds: new Date().getTime() / 1000 - 500000 },
+                expiryDate: { seconds: new Date('2025-09-28').getTime() / 1000 },
+            },
+            {
+                id: '9',
+                title: 'C++ Programming Essentials',
+                description: 'The definitive guide for C++ programming. Required for CS102. Available to borrow for the whole semester.',
+                category: 'Books',
+                mode: 'Lend',
+                price: '300',
+                priceUnit: 'semester',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/eh8z1-L4EHkYc1jQpT97FODhLAz3oG_ml24_eiC_Ck8/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMubWFubmluZy5j/b20vMjY0LzM1Mi9y/ZXNpemUvdmlkZW8v/NC9mMmIxZDhjLTI4/NzEtNGU4Ny1iNmRi/LTFjMDM5M2I2YjNj/Yy9DcGx1c3BsdXNw/cm9ncmFtbWluZ2Vz/c2VudGlhbHNfUkVW/Qi5wbmc',
+                userId: 'user8',
+                userName: 'Sanjay Verma',
+                contactEmail: 'sanjay.v@university.edu',
+                contactPhone: '',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'CS Department Office',
+                createdAt: { seconds: new Date().getTime() / 1000 - 43200 },
+                expiryDate: { seconds: new Date('2025-12-15').getTime() / 1000 },
+            },
+            {
+                id: '10',
+                title: 'Mini Fridge for Rent',
+                description: 'Need a fridge just for the exam period? Rent this one out for a month. Works perfectly.',
+                category: 'Electronics',
+                mode: 'Lend',
+                price: '500',
+                priceUnit: 'month',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/Fm6eufdu8kLWCT5v909B9tLSOg76OGDFLGuuT6kQnl4/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly90aHVt/YnMuZHJlYW1zdGlt/ZS5jb20vYi9ibGFj/ay13aGl0ZS1taW5p/LWZyaWRnZS1iYWNr/Z3JvdW5kLWNsb3Nl/LXVwLXBob3RvLTI5/NzI0MTE4My5qcGc',
+                userId: 'user3',
+                userName: 'Amit Kumar',
+                contactEmail: 'amit.k@university.edu',
+                contactPhone: '444-555-6666',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Block D, Room 101',
+                createdAt: { seconds: new Date().getTime() / 1000 - 240000 },
+                expiryDate: { seconds: new Date('2025-10-30').getTime() / 1000 },
+            },
+            {
+                id: '11',
+                title: 'Bedside Lamp',
+                description: 'A nice warm bedside lamp. Perfect for reading without disturbing your roommate.',
+                category: 'Furniture',
+                mode: 'Sell',
+                price: '400',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/8QRSmJRPL1NAzNQ2vh5WdsgLrnTECDDyzgiCv1TV6Uw/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/NDFvN1dxZEFLYkwu/anBn',
+                userId: 'user5',
+                userName: 'Vikram Rathod',
+                contactEmail: 'vikram.r@university.edu',
+                contactPhone: '',
+                deliveryMode: 'Home Delivery',
+                pickupAddress: '',
+                createdAt: { seconds: new Date().getTime() / 1000 - 350000 },
+                expiryDate: { seconds: new Date('2025-11-11').getTime() / 1000 },
+            },
+            {
+                id: '12',
+                title: 'University Hoodie (Size L)',
+                description: 'Official university branded hoodie. Comfortable and warm. Selling because I bought the wrong size.',
+                category: 'Clothes',
+                mode: 'Sell',
+                price: '700',
+                isUrgent: true,
+                imageUrl: 'https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcRjIDFCm0MdIq9pZV_jIkwZ61rjxf8xIYAlNpwPH1oyCSUJilSQjPv39Alf88dSIIbfzmBTDzW1V_tk5BtN3yxtXBqU-r2mVHozHAOT3djfaEjSmasUyvalwA',
+                userId: 'localUser123',
+                userName: 'Rohan Sharma',
+                contactEmail: 'student@university.edu',
+                contactPhone: '',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Student Store',
+                createdAt: { seconds: new Date().getTime() / 1000 - 800000 },
+                expiryDate: { seconds: new Date('2025-09-22').getTime() / 1000 },
+            },
+            {
+                id: '13',
+                title: 'Study Chair (Needs Repair)',
+                description: 'A sturdy study chair. The leather is a bit worn and torn, but it is functionally perfect. Great for someone who can put a cover on it.',
+                category: 'Furniture',
+                mode: 'Donate',
+                needsRepair: true,
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/DVGFzzSA8jcu1SWRQub_kg57o_WP6H4XZ-6-7ktz5ek/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS5pc3RvY2twaG90/by5jb20vaWQvMjIw/OTUxNTk3NS9waG90/by9vbGQtZGFtYWdl/ZC1jaGFpci13b3Ju/LWJyb2tlbi1hbmQt/ZGlydHktbGVhdGhl/ci5qcGc_cz02MTJ4/NjEyJnc9MCZrPTIw/JmM9YVB6bDBqVURB/VGx2YkNWN1liczgt/Z0NzRDZ3anBiWWxk/NjVXeHMxMHREYz0',
+                userId: 'user5',
+                userName: 'Vikram Rathod',
+                contactEmail: 'vikram.r@university.edu',
+                contactPhone: '999-888-7777',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Hostel 5, Ground Floor',
+                createdAt: { seconds: new Date().getTime() / 1000 - 900000 },
+                expiryDate: { seconds: new Date('2025-10-01').getTime() / 1000 },
+            },
+            {
+                id: '14',
+                title: 'Gearless Cycle',
+                description: 'An old but working gearless cycle. Perfect for short rides to the market. Free for anyone who needs it.',
+                category: 'Vehicle',
+                mode: 'Donate',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/k3qEfL9vT44V42vf9i0dKYy1X2VwIKkrnkmosyMjYf8/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9ydWtt/aW5pbTIuZmxpeGNh/cnQuY29tL2ltYWdl/LzMwMC8zMDAveGlm/MHEvY3ljbGUvci9w/L3MvYnVrZS10aHJ1/c3QyNnQtYmljeWNs/ZS1mb3Ita2lkcy0y/NmluY2gtd2hlZWwt/MTctNS1zdGVlbC1m/cmFtZS1vcmlnaW5h/bC1pbWFnbmE2anZo/cmg0a2d5LmpwZWc_/cT05MA',
+                userId: 'localUser123',
+                userName: 'Rohan Sharma',
+                contactEmail: 'student@university.edu',
+                contactPhone: '',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Main Gate',
+                createdAt: { seconds: new Date().getTime() / 1000 - 1000000 },
+                expiryDate: { seconds: new Date('2025-09-30').getTime() / 1000 },
+            },
+            {
+                id: '15',
+                title: 'Scientific Calculator for Rent',
+                description: 'Forgot your calculator at home? Rent this FX-991MS for your exam week. Fully functional.',
+                category: 'Electronics',
+                mode: 'Lend',
+                price: '50',
+                priceUnit: 'week',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/szx8QnY-2wwJSYdgCz6o2L5FZqgcadvofJG3_DETiAE/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9tLm1l/ZGlhLWFtYXpvbi5j/b20vaW1hZ2VzL0kv/ODFFOTdia2FPR0wu/anBn',
+                userId: 'user6',
+                userName: 'Anjali Sharma',
+                contactEmail: 'anjali.s@university.edu',
+                contactPhone: '',
+                deliveryMode: 'Home Delivery',
+                pickupAddress: '',
+                createdAt: { seconds: new Date().getTime() / 1000 - 1100000 },
+                expiryDate: { seconds: new Date('2025-10-18').getTime() / 1000 },
+            },
+            {
+                id: '16',
+                title: '2-Slice Toaster',
+                description: 'Simple and effective toaster for your morning breakfast. Works great, giving away as I got a new one.',
+                category: 'Electronics',
+                mode: 'Donate',
+                isUrgent: true,
+                imageUrl: 'https://imgs.search.brave.com/OdAKmB1e87FwuGf1H6zjyNA5uHFOQyNG-WNMXaMEgKs/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly93d3cu/cHJvY3RvcnNpbGV4/LmNvbS9tZWRpYS9w/ZHBoZXJvLzI0MjE0/UFMtaGVyby1hZGp1/c3QuanBn',
+                userId: 'user10',
+                userName: 'Kavita Joshi',
+                contactEmail: 'kavita.j@university.edu',
+                contactPhone: '789-123-4560',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Girls Hostel Mess',
+                createdAt: { seconds: new Date().getTime() / 1000 - 50000 },
+                expiryDate: { seconds: new Date('2025-09-29').getTime() / 1000 },
+            },
+            {
+                id: '17',
+                title: 'Another Backpack',
+                description: 'Good condition backpack for daily use. Has a laptop sleeve. I want to barter it for a small study lamp.',
+                category: 'Clothes',
+                mode: 'Barter',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/2tfvh8yzqxHJ-ZANDsseKVLhGAvUJN-NY6XlW7nhd24/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pLmV0/c3lzdGF0aWMuY29t/LzU3ODkyMjkxL3Iv/aWwvZDE1Nzc2LzY4/OTEzMjg3MTYvaWxf/MzAweDMwMC42ODkx/MzI4NzE2XzM1bGsu/anBn',
+                userId: 'user9',
+                userName: 'Neha Patel',
+                contactEmail: 'neha.p@university.edu',
+                contactPhone: '',
+                deliveryMode: 'Pickup from Seller',
+                pickupAddress: 'Campus Cafe',
+                createdAt: { seconds: new Date().getTime() / 1000 - 600000 },
+                expiryDate: { seconds: new Date('2025-11-05').getTime() / 1000 },
+            },
+            {
+                id: '18',
+                title: 'C++ Book - Free',
+                description: 'I have an extra copy of this C++ book. It is a great resource for beginners. Giving it away for free.',
+                category: 'Books',
+                mode: 'Donate',
+                isUrgent: false,
+                imageUrl: 'https://imgs.search.brave.com/eh8z1-L4EHkYc1jQpT97FODhLAz3oG_ml24_eiC_Ck8/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pbWFn/ZXMubWFubmluZy5j/b20vMjY0LzM1Mi9y/ZXNpemUvdmlkZW8v/NC9mMmIxZDhjLTI4/NzEtNGU4Ny1iNmRi/LTFjMDM5M2I2YjNj/Yy9DcGx1c3BsdXNw/cm9ncmFtbWluZ2Vz/c2VudGlhbHNfUkVW/Qi5wbmc',
+                userId: 'user8',
+                userName: 'Sanjay Verma',
+                contactEmail: 'sanjay.v@university.edu',
+                contactPhone: '111-333-5555',
+                deliveryMode: 'Home Delivery',
+                pickupAddress: '',
+                createdAt: { seconds: new Date().getTime() / 1000 - 750000 },
+                expiryDate: { seconds: new Date('2025-10-25').getTime() / 1000 },
+            }
+        ];
+
+        // --- APPLICATION STATE ---
+        let state = {
+            user: null,
+            loadingAuth: true,
+            loadingListings: true,
+            currentView: 'home', // 'home', 'myListings', 'watchlist', 'about'
+            listings: [],
+            filteredListings: [],
+            filters: { category: 'All', mode: 'All', isUrgent: false, searchQuery: '' },
+            sortOrder: 'newest', // 'newest', 'oldest', 'priceLowHigh', 'priceHighLow'
+            selectedItem: null,
+            editingItem: null, // Holds the item being edited
+            createListingOpen: false,
+            confirmDeleteOpen: false,
+            itemToDelete: null,
+        };
+
+        // --- DOM ELEMENTS ---
+        const appContainer = document.getElementById('app');
+        const toastContainer = document.getElementById('toast-container');
+
+        // --- ICONS (SVG STRINGS) ---
+        const ICONS = {
+            Plus: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>`,
+            User: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>`,
+            Close: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`,
+            Sell: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>`,
+            Barter: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>`,
+            Donate: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>`,
+            Lend: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+            Urgent: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`,
+            Repair: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>`,
+            Empty: `<svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>`,
+            Search: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>`,
+            Logo: `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-2" viewBox="0 0 20 20" fill="currentColor"><path d="M8 5a1 1 0 100 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" /><path d="M12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" /></svg>`,
+            Bookmark: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>`,
+            BookmarkSolid: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>`,
+            Delete: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>`,
+            Edit: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>`,
+            Sun: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`,
+            Moon: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>`,
+        };
+
+        // --- THEME MANAGEMENT ---
+        function applyTheme() {
+            if (localStorage.getItem('theme') === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        function toggleTheme() {
+            if (localStorage.getItem('theme') === 'dark') {
+                localStorage.setItem('theme', 'light');
+            } else {
+                localStorage.setItem('theme', 'dark');
+            }
+            applyTheme();
+            renderApp(); // This will re-render the entire UI with the correct theme
+        }
+        
+        applyTheme(); // Apply theme on initial script load
+
+        // --- LOCAL STORAGE & STATE MANAGEMENT ---
+        function saveStateToLocalStorage() {
+            try {
+                localStorage.setItem('campusExchangeListings', JSON.stringify(state.listings));
+                localStorage.setItem('campusExchangeUser', JSON.stringify(state.user));
+            } catch (e) {
+                console.error("Failed to save state to localStorage", e);
+            }
+        }
+
+        function loadStateFromLocalStorage() {
+            try {
+                const savedListings = localStorage.getItem('campusExchangeListings');
+                const savedUser = localStorage.getItem('campusExchangeUser');
+
+                state.listings = savedListings ? JSON.parse(savedListings) : defaultListings;
+                state.user = savedUser ? JSON.parse(savedUser) : defaultUser;
+                
+            } catch (e) {
+                console.error("Failed to load state from localStorage, using defaults", e);
+                state.listings = defaultListings;
+                state.user = defaultUser;
+            }
+        }
+
+        // --- TOAST NOTIFICATION ---
+        function showToast(message, type = 'info', duration = 3000) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, duration);
+        }
+
+
+        // --- UTILITY FUNCTIONS ---
+        const formatDate = (timestamp) => {
+            if (!timestamp) return 'N/A';
+            return new Date(timestamp.seconds * 1000).toLocaleDateString("en-US", { year: 'numeric', month: 'short', day: 'numeric' });
+        };
+        const dateToYMD = (date) => {
+            const d = date.getDate();
+            const m = date.getMonth() + 1;
+            const y = date.getFullYear();
+            return '' + y + '-' + (m<=9 ? '0' + m : m) + '-' + (d <= 9 ? '0' + d : d);
+        }
+
+        const formatRelativeTime = (timestamp) => {
+            if (!timestamp) return '';
+            const now = new Date();
+            const then = new Date(timestamp.seconds * 1000);
+            const diff = now.getTime() - then.getTime();
+            const minutes = Math.floor(diff / 60000);
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        };
+        
+        // --- TEMPLATING / RENDERING FUNCTIONS ---
+        const renderHeader = () => {
+            if (!state.user) return '';
+            const isDarkMode = localStorage.getItem('theme') === 'dark';
+            return `
+                <header class="bg-white dark:bg-gray-800 shadow-sm dark:shadow-lg sticky top-0 z-40 transition-colors duration-300">
+                    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                        <div id="home-btn" class="text-2xl font-bold text-green-600 cursor-pointer flex items-center">
+                           ${ICONS.Logo} Campus Exchange+
+                        </div>
+                        <div class="flex items-center space-x-2 md:space-x-4">
+                            <button id="theme-toggle-btn" class="text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 p-2 rounded-full transition-colors">
+                                ${isDarkMode ? ICONS.Sun : ICONS.Moon}
+                            </button>
+                            <button id="new-listing-btn-desktop" class="hidden md:flex items-center bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors">
+                                ${ICONS.Plus} <span class="ml-2">New Listing</span>
+                            </button>
+                            <div class="relative" id="profile-menu-container">
+                                <button id="profile-menu-btn" class="flex items-center space-x-2 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                    ${ICONS.User}
+                                    <span class="hidden md:inline font-medium text-gray-700 dark:text-gray-300">${state.user.displayName}</span>
+                                </button>
+                                <div id="profile-menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg py-1 z-50">
+                                    <a href="#" id="my-listings-btn" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">My Listings</a>
+                                    <a href="#" id="my-watchlist-btn" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">My Watchlist</a>
+                                    <a href="#" id="sign-out-btn" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600">Sign Out</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            `;
+        };
+
+        const renderFooter = () => {
+            return `
+                <footer class="bg-white dark:bg-gray-800 shadow-inner mt-12 py-8 transition-colors duration-300">
+                    <div class="container mx-auto px-4 text-center text-gray-600 dark:text-gray-400">
+                        <p>&copy; ${new Date().getFullYear()} Campus Exchange+. All Rights Reserved.</p>
+                        <p class="mt-2">
+                            <a href="#" id="about-us-link" class="hover:text-green-600 dark:hover:text-green-400 transition-colors">About Us</a>
+                        </p>
+                    </div>
+                </footer>
+            `;
+        };
+
+        const renderAboutPage = () => {
+            return `
+                 <main class="container mx-auto p-4 md:p-6 flex-grow flex items-center justify-center">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 max-w-2xl mx-auto transition-colors duration-300">
+                        <h2 class="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4 text-center">About Campus Exchange+</h2>
+                        <p class="text-lg text-center text-gray-600 dark:text-gray-300">
+                            This is a mockup created by <strong>Archit Singh</strong> for <strong>Srijan: The Tech Hackathon</strong>.
+                        </p>
+                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-center">
+                            The goal of this platform is to create a sustainable and helpful community within a university campus, allowing students to sell, donate, lend, or barter items they no longer need.
+                        </p>
+                    </div>
+                </main>
+            `;
+        };
+        
+        const renderListingCard = (item, { showWatchlistButton = true } = {}) => {
+            const tagStyles = {
+                Sell: "bg-blue-100 text-blue-800",
+                Barter: "bg-purple-100 text-purple-800",
+                Donate: "bg-pink-100 text-pink-800",
+                Lend: "bg-indigo-100 text-indigo-800",
+            };
+            const tagIcons = { Sell: ICONS.Sell, Barter: ICONS.Barter, Donate: ICONS.Donate, Lend: ICONS.Lend };
+            const imageUrl = item.imageUrl;
+            const displayCategory = item.category === 'Other' ? item.customCategory : item.category;
+            const isWatched = state.user.watchlist.includes(item.id);
+
+            let priceTag = '';
+            if (item.mode === 'Sell' && item.price) {
+                priceTag = `<div class="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-lg font-bold px-3 py-1 rounded-lg">₹${item.price}</div>`;
+            } else if (item.mode === 'Lend' && item.price && item.priceUnit) {
+                priceTag = `<div class="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-sm font-bold px-3 py-1 rounded-lg">₹${item.price} / ${item.priceUnit}</div>`;
+            }
+
+            return `
+                <div class="listing-card-wrapper">
+                    <div data-id="${item.id}" class="listing-card bg-white dark:bg-gray-800 rounded-xl shadow-md dark:shadow-gray-900 overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:hover:shadow-green-900/20 group">
+                        <div class="relative">
+                            <img src="${imageUrl}" alt="${item.title}" class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"/>
+                            <div class="absolute top-2 left-2 flex flex-col space-y-1">
+                                <div class="flex items-center text-xs font-semibold px-2 py-1 rounded-full ${tagStyles[item.mode]}">${tagIcons[item.mode]}<span class="ml-1">${item.mode}</span></div>
+                                ${item.isUrgent ? `<div class="flex items-center text-xs font-semibold px-2 py-1 rounded-full bg-red-500 text-white animate-pulse">${ICONS.Urgent}<span class="ml-1">Urgent</span></div>` : ''}
+                                ${item.needsRepair ? `<div class="flex items-center text-xs font-semibold px-2 py-1 rounded-full bg-yellow-500 text-black mt-1">${ICONS.Repair}<span class="ml-1">Needs Repair</span></div>` : ''}
+                            </div>
+                            ${showWatchlistButton ? `
+                            <button data-id="${item.id}" class="watchlist-btn absolute top-2 right-2 bg-black bg-opacity-50 p-1.5 rounded-full text-white hover:bg-opacity-75 transition-colors">
+                                ${isWatched ? ICONS.BookmarkSolid : ICONS.Bookmark}
+                            </button>
+                            ` : ''}
+                            ${priceTag}
+                        </div>
+                        <div class="p-4">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">${displayCategory}</p>
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 truncate group-hover:text-green-600 dark:group-hover:text-green-400">${item.title}</h3>
+                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1 h-10 overflow-hidden">${item.description}</p>
+                            <div class="mt-3 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                                <span>${item.userName || 'A Student'}</span>
+                                <span>${formatRelativeTime(item.createdAt)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+        
+        const renderSkeletonCard = () => `
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden animate-pulse">
+                <div class="bg-gray-200 dark:bg-gray-700 w-full h-48"></div>
+                <div class="p-4">
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-2"></div>
+                    <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded w-3/4 mb-2"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-1"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-3"></div>
+                    <div class="flex justify-between items-center">
+                        <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+                        <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const renderEmptyState = (message = "No listings found!") => `
+            <div class="text-center py-20 col-span-full">
+                ${ICONS.Empty}
+                <h3 class="mt-4 text-2xl font-semibold text-gray-700 dark:text-gray-300">${message}</h3>
+                <p class="text-gray-500 dark:text-gray-400 mt-2">Try adjusting your filters or add some items to your watchlist!</p>
+            </div>
+        `;
+        
+        const renderHomePage = () => {
+            let listingsHTML;
+            if (state.loadingListings) {
+                listingsHTML = Array(8).fill().map(renderSkeletonCard).join('');
+            } else if (state.filteredListings.length > 0) {
+                listingsHTML = state.filteredListings.map(item => renderListingCard(item, { showWatchlistButton: item.userId !== state.user.uid })).join('');
+            } else {
+                listingsHTML = renderEmptyState("No listings match your criteria.");
+            }
+
+            const categories = ['Books', 'Electronics', 'Clothes', 'Furniture', 'Vehicle', 'Other'];
+            const modes = ['Sell', 'Barter', 'Donate', 'Lend'];
+
+            return `
+                <main class="container mx-auto p-4 md:p-6">
+                    <div class="bg-cover bg-center p-6 rounded-lg mb-6 text-center text-white" style="background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://imgs.search.brave.com/B9s4QbOiYR7bWtN8zJsLDunCSEXGhGE6zAI7imthnz8/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pbWcu/ZnJlZXBpay5jb20v/cHJlbWl1bS1waG90/by93aWRlYW5nbGUt/cGhvdG9ncmFwaHkt/dmlldy11bml2ZXJz/aXR5LW1haW4tYnVp/bGRpbmctbGFyZ2Ut/YnVpbGRpbmctd2l0/aC1ncmVlbi1sYXdu/LWdyYXNzLWZpZWxk/XzU1MTg4MC03Nzg2/LmpwZz9zZW10PWFp/c19pbmNvbWluZyZ3/PTc0MCZxPTgw');">
+                        <h2 class="text-3xl font-bold [text-shadow:_2px_2px_4px_rgb(0_0_0_/_40%)]">Reduce, Reuse, Recycle... on Campus!</h2>
+                        <p class="mt-2 [text-shadow:_1px_1px_3px_rgb(0_0_0_/_40%)]">Find what you need, or pass on what you don't. Let's build a sustainable community together.</p>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-6 sticky top-[70px] z-30 transition-colors duration-300">
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                            <div class="md:col-span-2 relative">
+                                <label for="search-bar" class="sr-only">Search</label>
+                                <input type="search" id="search-bar" placeholder="Search for items..." class="w-full p-2 pl-10 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors duration-300" value="${state.filters.searchQuery}" />
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">${ICONS.Search}</div>
+                            </div>
+                             <div>
+                                <label class="sr-only">Sort By</label>
+                                <select id="sort-order" class="w-full p-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors duration-300">
+                                    <option value="newest" ${state.sortOrder === 'newest' ? 'selected' : ''}>Newest First</option>
+                                    <option value="oldest" ${state.sortOrder === 'oldest' ? 'selected' : ''}>Oldest First</option>
+                                    <option value="priceLowHigh" ${state.sortOrder === 'priceLowHigh' ? 'selected' : ''}>Price: Low to High</option>
+                                    <option value="priceHighLow" ${state.sortOrder === 'priceHighLow' ? 'selected' : ''}>Price: High to Low</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="sr-only">Category</label>
+                                <select id="filter-category" class="w-full p-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors duration-300">
+                                    <option value="All">All Categories</option>
+                                    ${categories.map(c => `<option value="${c}" ${state.filters.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="sr-only">Mode</label>
+                                <select id="filter-mode" class="w-full p-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors duration-300">
+                                    <option value="All">All Modes</option>
+                                    ${modes.map(m => `<option value="${m}" ${state.filters.mode === m ? 'selected' : ''}>${m}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <label class="flex items-center space-x-2 cursor-pointer p-2 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20">
+                                    <input type="checkbox" id="filter-urgent" class="h-5 w-5 text-red-600 rounded-md border-gray-300 dark:border-gray-600 focus:ring-red-500 bg-gray-100 dark:bg-gray-700" ${state.filters.isUrgent ? 'checked' : ''}/>
+                                    <span class="font-semibold text-red-600">Urgent</span>
+                                </label>
+                                <button id="clear-filters-btn" class="text-sm text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 font-medium">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="listings-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        ${listingsHTML}
+                    </div>
+                </main>
+            `;
+        };
+
+        const renderMyListingsPage = () => {
+            const myListings = state.listings.filter(item => item.userId === state.user.uid);
+            let listingsHTML;
+             if (state.loadingListings) {
+                listingsHTML = Array(4).fill().map(renderSkeletonCard).join('');
+            } else if (myListings.length > 0) {
+                listingsHTML = myListings.map(item => renderListingCard(item, { showWatchlistButton: false })).join('');
+            } else {
+                listingsHTML = renderEmptyState("You haven't created any listings yet!");
+            }
+
+            return `
+                 <main class="container mx-auto p-4 md:p-6">
+                    <h2 class="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">My Listings</h2>
+                    <div id="listings-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        ${listingsHTML}
+                    </div>
+                 </main>
+            `;
+        };
+
+        const renderWatchlistPage = () => {
+            const watchlistItems = state.listings.filter(item => state.user.watchlist.includes(item.id));
+             let listingsHTML;
+             if (state.loadingListings) {
+                listingsHTML = Array(4).fill().map(renderSkeletonCard).join('');
+            } else if (watchlistItems.length > 0) {
+                listingsHTML = watchlistItems.map(item => renderListingCard(item)).join('');
+            } else {
+                listingsHTML = renderEmptyState("Your watchlist is empty.");
+            }
+
+            return `
+                 <main class="container mx-auto p-4 md:p-6">
+                    <h2 class="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">My Watchlist</h2>
+                    <div id="listings-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        ${listingsHTML}
+                    </div>
+                 </main>
+            `;
+        };
+        
+        const renderModals = () => {
+            const isOwner = state.selectedItem && state.user && state.user.uid === state.selectedItem.userId;
+            const isWatched = state.selectedItem && state.user.watchlist.includes(state.selectedItem.id);
+            const defaultExpiry = new Date();
+            defaultExpiry.setDate(defaultExpiry.getDate() + 30);
+
+            let actionButtonHTML = '';
+            if (state.selectedItem) {
+                if (isOwner) {
+                     actionButtonHTML = `
+                     <div class="flex items-center space-x-2">
+                        <button id="edit-listing-btn" class="flex items-center justify-center w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors">${ICONS.Edit} Edit</button>
+                        <button id="remove-listing-btn" class="flex items-center justify-center flex-shrink-0 bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 transition-colors">${ICONS.Delete}</button>
+                     </div>`;
+                } else {
+                    const commonClasses = "w-full py-3 rounded-lg font-semibold transition-colors";
+                    let messageBtn = '';
+                    switch(state.selectedItem.mode){
+                        case 'Sell': messageBtn = `<button id="message-action-btn" class="${commonClasses} bg-blue-600 hover:bg-blue-700 text-white">Message to Buy for ₹${state.selectedItem.price}</button>`; break;
+                        case 'Barter': messageBtn = `<button id="message-action-btn" class="${commonClasses} bg-purple-600 hover:bg-purple-700 text-white">Propose a Swap</button>`; break;
+                        case 'Donate': messageBtn = `<button id="message-action-btn" class="${commonClasses} bg-pink-600 hover:bg-pink-700 text-white">Claim for Free</button>`; break;
+                        case 'Lend': messageBtn = `<button id="message-action-btn" class="${commonClasses} bg-indigo-600 hover:bg-indigo-700 text-white">Request to Borrow for ₹${state.selectedItem.price} / ${state.selectedItem.priceUnit}</button>`; break;
+                    }
+                     actionButtonHTML = `
+                     <div class="flex items-center space-x-2">
+                        ${messageBtn}
+                        <button data-id="${state.selectedItem.id}" class="watchlist-btn flex-shrink-0 p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${isWatched ? 'text-green-600 bg-green-100 dark:bg-green-900/50' : 'text-gray-600 bg-gray-100 dark:bg-gray-700 dark:text-gray-300'}">
+                            ${isWatched ? ICONS.BookmarkSolid : ICONS.Bookmark}
+                        </button>
+                     </div>`;
+                }
+            }
+            
+            const isEditing = !!state.editingItem;
+            const itemToEdit = state.editingItem || {};
+
+            return `
+                <!-- Create/Edit Listing Modal -->
+                <div id="create-listing-modal" class="${state.createListingOpen ? '' : 'hidden'} modal-container fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div class="modal-content bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto scale-95 opacity-0">
+                       <form id="listing-form">
+                            <div class="p-6 border-b dark:border-gray-700 flex justify-between items-center">
+                                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">${isEditing ? 'Edit Your Listing' : 'Create a New Listing'}</h2>
+                                <button type="button" data-close-modal="create-listing-modal" class="text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">${ICONS.Close}</button>
+                            </div>
+                            <div class="p-6 space-y-4">
+                                <p id="listing-form-error" class="bg-red-100 text-red-700 p-3 rounded hidden"></p>
+                                
+                                <div class="border-b dark:border-gray-700 pb-4 space-y-4">
+                                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Item Details</h3>
+                                    <div><label for="title" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label><input type="text" id="title" required class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500" value="${itemToEdit.title || ''}"/></div>
+                                    <div><label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label><textarea id="description" rows="3" required class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500">${itemToEdit.description || ''}</textarea></div>
+                                    <div><label for="image" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Image</label><input type="file" id="image" accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 dark:file:bg-green-900/50 file:text-green-700 dark:file:text-green-300 hover:file:bg-green-100 dark:hover:file:bg-green-900"/></div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div><label for="category" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Category</label><select id="category" class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500"><option>Books</option><option>Electronics</option><option>Clothes</option><option>Furniture</option><option>Vehicle</option><option>Other</option></select></div>
+                                        <div id="custom-category-container" class="hidden"><label for="custom-category" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Specify Category</label><input type="text" id="custom-category" class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500" value="${itemToEdit.customCategory || ''}"/></div>
+                                    </div>
+                                    <div>
+                                        <label for="mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Mode</label>
+                                        <select id="mode" class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500"><option>Sell</option><option>Barter</option><option>Donate</option><option>Lend</option></select>
+                                    </div>
+                                    <div id="price-container">
+                                        <label for="price" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Price (₹)</label>
+                                        <input type="number" id="price" required class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500" placeholder="e.g., 1500" value="${itemToEdit.price || ''}"/>
+                                    </div>
+                                    <div id="price-unit-container" class="hidden">
+                                        <label for="price-unit" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Per</label>
+                                        <select id="price-unit" class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500"><option>use</option><option>hour</option><option>day</option><option>week</option><option>month</option><option>semester</option></select>
+                                    </div>
+                                     <div>
+                                        <label for="expiryDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Expiry Date</label>
+                                        <input type="date" id="expiryDate" required class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500" value="${isEditing ? dateToYMD(new Date(itemToEdit.expiryDate.seconds * 1000)) : dateToYMD(defaultExpiry)}" />
+                                    </div>
+                                    <div class="flex items-start space-x-4"><div class="flex items-center h-5"><input id="urgent" type="checkbox" class="focus:ring-red-500 h-4 w-4 text-red-600 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 rounded" ${itemToEdit.isUrgent ? 'checked' : ''} /></div><div class="text-sm"><label for="urgent" class="font-medium text-gray-700 dark:text-gray-300">Mark as Urgent</label><p class="text-gray-500 dark:text-gray-400">Your item will be highlighted for a quick deal.</p></div></div>
+                                </div>
+
+                                <div class="border-b dark:border-gray-700 pb-4 space-y-4">
+                                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Contact & Delivery</h3>
+                                    <div><label for="contact-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Your Name</label><input type="text" id="contact-name" required class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500" value="${isEditing ? itemToEdit.userName : state.user.displayName}" /></div>
+                                    <div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Your Official Email (non-editable)</label><input type="email" readonly class="mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-gray-100 dark:bg-gray-900/50 cursor-not-allowed" value="${state.user.email}" /></div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div><label for="contact-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Contact Email</label><input type="email" id="contact-email" class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500" value="${itemToEdit.contactEmail || ''}"/></div>
+                                        <div><label for="contact-phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Contact Phone</label><input type="tel" id="contact-phone" class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500" value="${itemToEdit.contactPhone || ''}"/></div>
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 -mt-3">Please provide at least one contact method.</p>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Delivery Method</label>
+                                        <div class="mt-2 flex space-x-4">
+                                            <label class="flex items-center"><input type="radio" name="delivery" value="Pickup from Seller" class="focus:ring-green-500 h-4 w-4 text-green-600 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700" ${!isEditing || itemToEdit.deliveryMode === 'Pickup from Seller' ? 'checked' : ''}> <span class="ml-2">Pickup from Seller</span></label>
+                                            <label class="flex items-center"><input type="radio" name="delivery" value="Home Delivery" class="focus:ring-green-500 h-4 w-4 text-green-600 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700" ${isEditing && itemToEdit.deliveryMode === 'Home Delivery' ? 'checked' : ''}> <span class="ml-2">Home Delivery</span></label>
+                                        </div>
+                                    </div>
+                                    <div id="pickup-address-container">
+                                        <label for="pickup-address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Pickup Address</label>
+                                        <input type="text" id="pickup-address" required class="mt-1 block w-full border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-green-500 focus:border-green-500" placeholder="e.g., Library Entrance, Hostel Block C" value="${itemToEdit.pickupAddress || ''}"/>
+                                    </div>
+                                </div>
+                                
+                                <div class="pt-4 flex justify-end space-x-3">
+                                    <button type="button" data-close-modal="create-listing-modal" class="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
+                                    <button type="submit" id="listing-form-submit-btn" class="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 disabled:bg-green-300">${isEditing ? 'Save Changes' : 'Create Listing'}</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Listing Detail Modal -->
+                <div id="listing-detail-modal" class="${state.selectedItem ? '' : 'hidden'} modal-container fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                     ${state.selectedItem ? `
+                     <div class="modal-content bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col md:flex-row scale-95 opacity-0">
+                         <div class="w-full md:w-1/2 md:flex-shrink-0"><img src="${state.selectedItem.imageUrl}" alt="${state.selectedItem.title}" class="w-full h-64 md:h-full object-cover rounded-t-lg md:rounded-l-lg md:rounded-t-none"/></div>
+                         <div class="w-full md:w-1/2 p-6 flex flex-col relative">
+                            <button data-close-modal="listing-detail-modal" class="absolute top-4 right-6 text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 z-10">${ICONS.Close}</button>
+                            <div class="flex-grow overflow-y-auto details-scroll-area pr-4 -mr-4">
+                                <div class="flex flex-wrap gap-2 mb-2">
+                                   ${state.selectedItem.isUrgent ? `<span class="text-xs font-bold bg-red-500 text-white px-2 py-1 rounded-full flex items-center">${ICONS.Urgent}Urgent</span>` : ''}
+                                   ${state.selectedItem.needsRepair ? `<span class="text-xs font-bold bg-yellow-500 text-black px-2 py-1 rounded-full flex items-center">${ICONS.Repair}Needs Repair</span>` : ''}
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">${state.selectedItem.category === 'Other' ? state.selectedItem.customCategory : state.selectedItem.category}</p>
+                                <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">${state.selectedItem.title}</h2>
+                                <p class="text-gray-600 dark:text-gray-300 mt-4 whitespace-pre-wrap">${state.selectedItem.description}</p>
+                                <div class="mt-6 border-t dark:border-gray-700 pt-4 space-y-2 text-sm">
+                                    <div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">Mode:</span> <span>${state.selectedItem.mode}</span></div>
+                                    ${(state.selectedItem.mode === 'Lend' || state.selectedItem.mode === 'Sell') && state.selectedItem.price ? `<div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">${state.selectedItem.mode === 'Lend' ? 'Lending Fee' : 'Price'}:</span> <span>₹${state.selectedItem.price} ${state.selectedItem.mode === 'Lend' ? `/ ${state.selectedItem.priceUnit}` : ''}</span></div>` : ''}
+                                    <div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">Posted:</span> <span>${formatDate(state.selectedItem.createdAt)}</span></div>
+                                    <div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">Expires:</span> <span>${formatDate(state.selectedItem.expiryDate)}</span></div>
+                                </div>
+                                <div class="mt-4 border-t dark:border-gray-700 pt-4">
+                                     <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-2">Seller Information</h4>
+                                     <div class="space-y-2 text-sm">
+                                        <div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">Name:</span> <span>${state.selectedItem.userName}</span></div>
+                                        ${state.selectedItem.contactEmail ? `<div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">Email:</span> <span>${state.selectedItem.contactEmail}</span></div>` : ''}
+                                        ${state.selectedItem.contactPhone ? `<div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">Phone:</span> <span>${state.selectedItem.contactPhone}</span></div>` : ''}
+                                        <div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">Delivery:</span> <span>${state.selectedItem.deliveryMode}</span></div>
+                                        ${state.selectedItem.deliveryMode === 'Pickup from Seller' && state.selectedItem.pickupAddress ? `<div class="flex justify-between"><span class="font-semibold text-gray-700 dark:text-gray-300">Location:</span> <span class="text-right">${state.selectedItem.pickupAddress}</span></div>` : ''}
+                                     </div>
+                                </div>
+                            </div>
+                            <div class="mt-6 flex-shrink-0">${actionButtonHTML}</div>
+                         </div>
+                     </div>
+                     ` : ''}
+                </div>
+
+                 <!-- Confirm Delete Modal -->
+                <div id="confirm-delete-modal" class="${state.confirmDeleteOpen ? '' : 'hidden'} modal-container fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div class="modal-content bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm scale-95 opacity-0 p-6 text-center">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Remove Listing</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">Are you sure you want to permanently remove this listing?</p>
+                        <div class="mt-6 flex justify-center space-x-4">
+                            <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 font-semibold">Cancel</button>
+                            <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-semibold">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderFloatingActionButton = () => {
+             if (!state.user) return '';
+             return `
+                <button id="new-listing-btn-mobile" class="md:hidden fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-lg hover:bg-green-700 transition-transform transform hover:scale-110 z-30">
+                    ${ICONS.Plus}
+                </button>
+             `;
+        };
+        
+        // --- MAIN RENDER FUNCTION ---
+        function renderApp() {
+            let currentViewHTML = '';
+            if (state.currentView === 'home') {
+                currentViewHTML = renderHomePage();
+            } else if (state.currentView === 'myListings') {
+                currentViewHTML = renderMyListingsPage();
+            } else if (state.currentView === 'watchlist') {
+                currentViewHTML = renderWatchlistPage();
+            } else if (state.currentView === 'about') {
+                currentViewHTML = renderAboutPage();
+            }
+
+            const currentHTML = `
+                <div class="min-h-screen flex flex-col">
+                    ${state.user ? renderHeader() : ''}
+                    <div id="view-container" class="flex-grow">
+                        ${currentViewHTML}
+                    </div>
+                    ${renderFooter()}
+                    ${renderModals()}
+                    ${renderFloatingActionButton()}
+                </div>
+            `;
+            
+            appContainer.innerHTML = currentHTML;
+
+            setTimeout(() => {
+                document.querySelectorAll('.modal-container:not(.hidden) .modal-content').forEach(el => {
+                    el.classList.remove('scale-95', 'opacity-0');
+                });
+            }, 10);
+            
+            addEventListeners();
+        }
+
+        // --- EVENT LISTENERS ---
+        function addEventListeners() {
+            document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+            document.getElementById('home-btn')?.addEventListener('click', () => {
+                state.currentView = 'home';
+                renderApp();
+            });
+            document.getElementById('new-listing-btn-desktop')?.addEventListener('click', () => {
+                state.editingItem = null; // Ensure we are creating, not editing
+                state.createListingOpen = true;
+                renderApp();
+            });
+            const profileMenuBtn = document.getElementById('profile-menu-btn');
+            profileMenuBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.getElementById('profile-menu').classList.toggle('hidden');
+            });
+             document.getElementById('my-listings-btn')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                state.currentView = 'myListings';
+                document.getElementById('profile-menu').classList.add('hidden');
+                renderApp();
+            });
+            document.getElementById('my-watchlist-btn')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                state.currentView = 'watchlist';
+                document.getElementById('profile-menu').classList.add('hidden');
+                renderApp();
+            });
+            document.getElementById('about-us-link')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                state.currentView = 'about';
+                renderApp();
+            });
+            
+            appContainer.addEventListener('click', e => {
+                const card = e.target.closest('.listing-card');
+                const watchlistBtn = e.target.closest('.watchlist-btn');
+
+                if (watchlistBtn) {
+                    const id = watchlistBtn.dataset.id;
+                    handleToggleWatchlist(id);
+                } else if (card) {
+                    const id = card.dataset.id;
+                    state.selectedItem = state.listings.find(item => item.id === id);
+                    renderApp();
+                }
+            });
+            
+            document.querySelectorAll('[data-close-modal]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                   const modalId = btn.dataset.closeModal;
+                   if (modalId === 'create-listing-modal') {
+                       state.createListingOpen = false;
+                       state.editingItem = null; // Clear editing state
+                   }
+                   if (modalId === 'listing-detail-modal') state.selectedItem = null;
+                   renderApp();
+                });
+            });
+
+            document.getElementById('new-listing-btn-mobile')?.addEventListener('click', () => {
+                state.editingItem = null; // Ensure we are creating, not editing
+                state.createListingOpen = true;
+                renderApp();
+            });
+
+            // Modal handling
+            document.getElementById('listing-detail-modal')?.addEventListener('click', (e) => { if (e.target.id === 'listing-detail-modal') { state.selectedItem = null; renderApp(); } });
+            document.getElementById('create-listing-modal')?.addEventListener('click', (e) => { if (e.target.id === 'create-listing-modal') { state.createListingOpen = false; state.editingItem = null; renderApp(); } });
+            document.getElementById('confirm-delete-modal')?.addEventListener('click', (e) => { if (e.target.id === 'confirm-delete-modal') { state.confirmDeleteOpen = false; state.itemToDelete = null; renderApp(); } });
+
+            // Remove and Edit item
+            document.getElementById('remove-listing-btn')?.addEventListener('click', () => {
+                state.itemToDelete = state.selectedItem;
+                state.confirmDeleteOpen = true;
+                renderApp();
+            });
+            document.getElementById('edit-listing-btn')?.addEventListener('click', handleEditListing);
+            document.getElementById('cancel-delete-btn')?.addEventListener('click', () => {
+                state.confirmDeleteOpen = false;
+                state.itemToDelete = null;
+                renderApp();
+            });
+             document.getElementById('confirm-delete-btn')?.addEventListener('click', handleRemoveListing);
+
+            
+            // FILTERS & SORT
+            document.getElementById('search-bar')?.addEventListener('input', e => { state.filters.searchQuery = e.target.value; applyFilters(); });
+            document.getElementById('filter-category')?.addEventListener('change', e => { state.filters.category = e.target.value; applyFilters(); });
+            document.getElementById('filter-mode')?.addEventListener('change', e => { state.filters.mode = e.target.value; applyFilters(); });
+            document.getElementById('filter-urgent')?.addEventListener('change', e => { state.filters.isUrgent = e.target.checked; applyFilters(); });
+            document.getElementById('sort-order')?.addEventListener('change', e => { state.sortOrder = e.target.value; applyFilters(); });
+
+            document.getElementById('clear-filters-btn')?.addEventListener('click', () => {
+                state.filters = { category: 'All', mode: 'All', isUrgent: false, searchQuery: '' };
+                applyFilters();
+                renderApp(); // Re-render to reset dropdowns
+            });
+            
+            // CREATE/EDIT LISTING MODAL LOGIC
+            document.getElementById('mode')?.addEventListener('change', handleModeChange);
+            document.getElementById('category')?.addEventListener('change', handleCategoryChange);
+            document.querySelectorAll('input[name="delivery"]')?.forEach(radio => radio.addEventListener('change', handleDeliveryChange));
+            document.getElementById('listing-form')?.addEventListener('submit', handleListingFormSubmit);
+            document.getElementById('message-action-btn')?.addEventListener('click', () => { showToast('Its just a Mockup,so these features are not yet made available.', 'info'); });
+        }
+        
+        function handleModeChange(e) {
+            const mode = e.target.value;
+            const priceContainer = document.getElementById('price-container');
+            const priceUnitContainer = document.getElementById('price-unit-container');
+            const priceInput = document.getElementById('price');
+            const priceLabel = priceContainer.querySelector('label');
+
+            const showPrice = mode === 'Sell' || mode === 'Lend';
+            priceContainer.style.display = showPrice ? 'block' : 'none';
+            priceInput.required = showPrice;
+
+            const showUnit = mode === 'Lend';
+            priceUnitContainer.classList.toggle('hidden', !showUnit);
+            document.getElementById('price-unit').required = showUnit;
+
+            if (mode === 'Lend') {
+                priceLabel.textContent = 'Price Per Unit (₹)';
+                priceInput.placeholder = 'e.g., 100';
+            } else {
+                priceLabel.textContent = 'Price (₹)';
+                priceInput.placeholder = 'e.g., 1500';
+            }
+        }
+
+        function handleCategoryChange(e) {
+            const customCategoryContainer = document.getElementById('custom-category-container');
+            const isOther = e.target.value === 'Other';
+            customCategoryContainer.classList.toggle('hidden', !isOther);
+            document.getElementById('custom-category').required = isOther;
+        }
+        
+        function handleDeliveryChange() {
+            const deliveryMode = document.querySelector('input[name="delivery"]:checked').value;
+            const pickupAddressContainer = document.getElementById('pickup-address-container');
+            const isPickup = deliveryMode === 'Pickup from Seller';
+            pickupAddressContainer.style.display = isPickup ? 'block' : 'none';
+            document.getElementById('pickup-address').required = isPickup;
+        }
+
+        // --- LOGIC & DATA HANDLING ---
+
+        function handleToggleWatchlist(itemId) {
+            const itemIndex = state.user.watchlist.indexOf(itemId);
+            if (itemIndex > -1) {
+                state.user.watchlist.splice(itemIndex, 1);
+                showToast('Removed from watchlist', 'info');
+            } else {
+                state.user.watchlist.push(itemId);
+                showToast('Added to watchlist!', 'success');
+            }
+            saveStateToLocalStorage();
+
+            const isWatched = state.user.watchlist.includes(itemId);
+
+            // Update all card buttons on the page for this item
+            document.querySelectorAll(`.watchlist-btn[data-id="${itemId}"]`).forEach(btn => {
+                btn.innerHTML = isWatched ? ICONS.BookmarkSolid : ICONS.Bookmark;
+            });
+
+            // If we are on the watchlist page, removing an item should make the card disappear
+            if (state.currentView === 'watchlist' && !isWatched) {
+                const cardWrapper = document.querySelector(`.listing-card[data-id="${itemId}"]`)?.closest('.listing-card-wrapper');
+                if (cardWrapper) {
+                    cardWrapper.style.transition = 'opacity 0.3s ease';
+                    cardWrapper.style.opacity = '0';
+                    setTimeout(() => {
+                        cardWrapper.remove();
+                        // Check if the watchlist is now empty
+                        const remainingItems = document.querySelectorAll('#listings-grid .listing-card-wrapper');
+                        if (remainingItems.length === 0) {
+                            document.getElementById('listings-grid').innerHTML = renderEmptyState("Your watchlist is empty.");
+                        }
+                    }, 300);
+                }
+            }
+             // Also update the button inside the modal if it is open
+            const modal = document.getElementById('listing-detail-modal');
+            if (modal && !modal.classList.contains('hidden') && state.selectedItem && state.selectedItem.id === itemId) {
+                const modalButton = modal.querySelector('.watchlist-btn');
+                if (modalButton) {
+                    modalButton.innerHTML = isWatched ? ICONS.BookmarkSolid : ICONS.Bookmark;
+                    modalButton.classList.toggle('bg-green-100', isWatched);
+                    modalButton.classList.toggle('text-green-600', isWatched);
+                    modalButton.classList.toggle('dark:bg-green-900/50', isWatched);
+                    modalButton.classList.toggle('bg-gray-100', !isWatched);
+                    modalButton.classList.toggle('text-gray-600', !isWatched);
+                    modalButton.classList.toggle('dark:bg-gray-700', !isWatched);
+                    modalButton.classList.toggle('dark:text-gray-300', !isWatched);
+                }
+            }
+        }
+
+        function handleEditListing() {
+            state.editingItem = state.selectedItem;
+            state.selectedItem = null;
+            state.createListingOpen = true;
+            renderApp();
+            
+            // Manually set select values after render
+            document.getElementById('category').value = state.editingItem.category;
+            document.getElementById('mode').value = state.editingItem.mode;
+            if(state.editingItem.mode === 'Lend') {
+                document.getElementById('price-unit').value = state.editingItem.priceUnit;
+            }
+            // Trigger change events to update dependent UI
+            document.getElementById('category').dispatchEvent(new Event('change'));
+            document.getElementById('mode').dispatchEvent(new Event('change'));
+        }
+
+        function handleRemoveListing() {
+            if(!state.itemToDelete) return;
+
+            state.listings = state.listings.filter(item => item.id !== state.itemToDelete.id);
+            saveStateToLocalStorage();
+            
+            state.selectedItem = null;
+            state.confirmDeleteOpen = false;
+            state.itemToDelete = null;
+            applyFilters();
+            renderApp();
+            showToast('Listing removed successfully', 'success');
+        }
+
+        function renderListingsGrid() {
+            const listingsGrid = document.getElementById('listings-grid');
+            if (!listingsGrid) return;
+
+            let currentListingsSource;
+            let emptyMessage;
+            let options = {};
+
+            if (state.currentView === 'myListings') {
+                currentListingsSource = state.listings.filter(item => item.userId === state.user.uid);
+                emptyMessage = "You haven't created any listings yet!";
+                options.showWatchlistButton = false;
+            } else if (state.currentView === 'watchlist') {
+                 currentListingsSource = state.listings.filter(item => state.user.watchlist.includes(item.id));
+                 emptyMessage = "Your watchlist is empty.";
+            } else { // Home view
+                currentListingsSource = state.filteredListings;
+                emptyMessage = "No listings match your criteria.";
+            }
+
+            let listingsHTML;
+             if (state.loadingListings) {
+                listingsHTML = Array(8).fill().map(renderSkeletonCard).join('');
+            } else if (currentListingsSource.length > 0) {
+                 listingsHTML = currentListingsSource.map(item => {
+                    if (state.currentView === 'home' && item.userId === state.user.uid) {
+                        return renderListingCard(item, { showWatchlistButton: false });
+                    }
+                    return renderListingCard(item, options);
+                }).join('');
+            } else {
+                listingsHTML = renderEmptyState(emptyMessage);
+            }
+            listingsGrid.innerHTML = listingsHTML;
+        }
+
+        function applyFilters() {
+            const now = new Date().getTime() / 1000;
+            let result = state.listings.filter(item => item.expiryDate.seconds > now); 
+            const query = state.filters.searchQuery.toLowerCase();
+            
+            if (query) {
+                result = result.filter(item => 
+                    item.title.toLowerCase().includes(query) || 
+                    item.description.toLowerCase().includes(query)
+                );
+            }
+            if (state.filters.category !== 'All') {
+                result = result.filter(item => item.category === state.filters.category);
+            }
+            if (state.filters.mode !== 'All') {
+                result = result.filter(item => item.mode === state.filters.mode);
+            }
+            if (state.filters.isUrgent) {
+                result = result.filter(item => item.isUrgent);
+            }
+
+            // Sorting logic
+            switch(state.sortOrder) {
+                case 'oldest':
+                    result.sort((a, b) => a.createdAt.seconds - b.createdAt.seconds);
+                    break;
+                case 'priceLowHigh':
+                    result.sort((a, b) => {
+                        const priceA = (a.mode === 'Sell' || a.mode === 'Lend') ? parseFloat(a.price) : Infinity;
+                        const priceB = (b.mode === 'Sell' || b.mode === 'Lend') ? parseFloat(b.price) : Infinity;
+                        return priceA - priceB;
+                    });
+                    break;
+                case 'priceHighLow':
+                    result.sort((a, b) => {
+                        const priceA = (a.mode === 'Sell' || a.mode === 'Lend') ? parseFloat(a.price) : -1;
+                        const priceB = (b.mode === 'Sell' || b.mode === 'Lend') ? parseFloat(b.price) : -1;
+                        return priceB - priceA;
+                    });
+                    break;
+                case 'newest':
+                default:
+                    result.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+                    break;
+            }
+
+            state.filteredListings = result;
+            if (state.currentView === 'home') {
+                 renderListingsGrid();
+            }
+        }
+
+        async function handleListingFormSubmit(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('listing-form-submit-btn');
+            const errorEl = document.getElementById('listing-form-error');
+            
+            const contactEmail = document.getElementById('contact-email').value.trim();
+            const contactPhone = document.getElementById('contact-phone').value.trim();
+            
+            if (!contactEmail && !contactPhone) {
+                errorEl.textContent = 'Please provide at least one contact method (Email or Phone).';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            errorEl.classList.add('hidden');
+
+            const isEditing = !!state.editingItem;
+
+            const category = document.getElementById('category').value;
+            const mode = document.getElementById('mode').value;
+            const deliveryMode = document.querySelector('input[name="delivery"]:checked').value;
+            const expiryDateValue = document.getElementById('expiryDate').value;
+            const expiryTimestamp = new Date(expiryDateValue).getTime() / 1000;
+            const isLend = mode === 'Lend';
+
+            const listingData = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                category: category,
+                customCategory: category === 'Other' ? document.getElementById('custom-category').value : '',
+                mode: mode,
+                price: (mode === 'Sell' || isLend) ? document.getElementById('price').value : null,
+                priceUnit: isLend ? document.getElementById('price-unit').value : null,
+                isUrgent: document.getElementById('urgent').checked,
+                userName: document.getElementById('contact-name').value,
+                contactEmail: contactEmail,
+                contactPhone: contactPhone,
+                deliveryMode: deliveryMode,
+                pickupAddress: deliveryMode === 'Pickup from Seller' ? document.getElementById('pickup-address').value : '',
+                expiryDate: { seconds: expiryTimestamp },
+            };
+
+            const completeSubmission = (imageUrl) => {
+                if (isEditing) {
+                    // Update existing listing
+                    const index = state.listings.findIndex(item => item.id === state.editingItem.id);
+                    if (index !== -1) {
+                        state.listings[index] = { ...state.listings[index], ...listingData };
+                        if(imageUrl) state.listings[index].imageUrl = imageUrl;
+                    }
+                    showToast('Listing updated successfully!', 'success');
+                } else {
+                    // Create new listing
+                    const newListingData = {
+                        ...listingData,
+                        id: `local_${new Date().getTime()}`,
+                        imageUrl: imageUrl || `https://placehold.co/600x400/ECEFF1/263238?text=${encodeURIComponent(listingData.title)}`,
+                        userId: state.user.uid,
+                        createdAt: { seconds: new Date().getTime() / 1000 },
+                        status: 'active'
+                    };
+                    state.listings.unshift(newListingData);
+                    showToast('Listing created successfully!', 'success');
+                }
+                
+                state.createListingOpen = false;
+                state.editingItem = null;
+                saveStateToLocalStorage();
+                applyFilters();
+                renderApp();
+            };
+            
+            const imageFile = document.getElementById('image').files[0];
+            if (imageFile) {
+                const reader = new FileReader();
+                reader.onload = (event) => completeSubmission(event.target.result);
+                reader.onerror = (error) => {
+                    console.error("Error reading file:", error);
+                    errorEl.textContent = 'Failed to read the selected image file.';
+                    errorEl.classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = isEditing ? 'Save Changes' : 'Create Listing';
+                };
+                reader.readAsDataURL(imageFile);
+            } else {
+                completeSubmission(isEditing ? state.editingItem.imageUrl : null);
+            }
+        }
+        
+        // --- INITIALIZATION ---
+        function initialize() {
+            loadStateFromLocalStorage();
+            state.loadingAuth = false;
+            state.loadingListings = false;
+            applyFilters();
+            renderApp();
+        }
+
+        initialize();
+
+    </script>
+</body>
+</html>
+
